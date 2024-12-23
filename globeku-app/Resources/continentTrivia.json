@@ -1,0 +1,48 @@
+{
+  "Location_Afrika": {
+    "title": "Trivia dari Afrika",
+    "luas": "30,37 juta km²",
+    "iklim": "Tropis, Gurun, Mediterania",
+    "boundaries": "Asia, Eropa, Samudra Atlantik, Samudra Hindia",
+    "jumlah_negara": 54,
+    "flora_khas": "Baobab, Akasia, Jati",
+    "fauna_khas": "Gajah Afrika, Singa, Cheetah"
+  },
+  "Location_Amerika": {
+    "title": "Trivia dari Amerika",
+    "luas": "42,55 juta km²",
+    "iklim": "Tropis, Subtropis, Dingin",
+    "boundaries": "Arktik, Atlantik, Pasifik, Samudra Antartika",
+    "jumlah_negara": 35,
+    "flora_khas": "Kaktus, Redwood, Maple",
+    "fauna_khas": "Beruang Grizzly, Elang Laut, Jaguar"
+  },
+  "Location_Asia": {
+    "title": "Trivia dari Asia",
+    "luas": "44,58 juta km²",
+    "iklim": "Tropis, Dingin, Gurun",
+    "boundaries": "Eropa, Afrika, Samudra Pasifik",
+    "jumlah_negara": 49,
+    "flora_khas": "Pohon Sakura, Bamboo, Pine",
+    "fauna_khas": "Harimau, Panda, Gajah Asia"
+  },
+  "Location_Australia": {
+    "title": "Trivia dari Australia",
+    "luas": "8,6 juta km²",
+    "iklim": "Tropis, Gurun",
+    "boundaries": "Samudra Pasifik, Samudra Hindia",
+    "jumlah_negara": 1,
+    "flora_khas": "Eucalyptus, Banksia",
+    "fauna_khas": "Kanguru, Koala, Dingo"
+  },
+  "Location_Eropa": {
+    "title": "Trivia dari Eropa",
+    "luas": "10,18 juta km²",
+    "iklim": "Dingin, Mediterania, Subarctic",
+    "boundaries": "Asia, Afrika, Samudra Atlantik",
+    "jumlah_negara": 44,
+    "flora_khas": "Pohon Ek, Birch, Chestnut",
+    "fauna_khas": "Beruang Coklat, Serigala, Rusa Eropa"
+  }
+}
+

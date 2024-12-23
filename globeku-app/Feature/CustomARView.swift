@@ -1,16 +1,20 @@
-//
-//  CustomARView.swift
-//  ProtoGlobeKu
-//
-//  Created by I Gede Arisudana Samanjaya on 15/10/24.
-//
-
 import ARKit
 import RealityKit
-import SceneKit
 import SwiftUI
+import Photos
+import Foundation
 
-class CustomARView: ARView, ARSessionDelegate{
+class CustomARView: ARView, ARSessionDelegate {
+    var wrappedModel: Entity?
+    var continentPins: [String: Bool] = [
+        "pinBenua": false,
+        "Afrika": false,
+        "Amerika": false,
+        "Asia": false,
+        "Australia": false,
+        "Eropa": false
+    ]
+    
     required init(frame frameRect: CGRect) {
         super.init(frame: frameRect)
         self.session.delegate = self
@@ -22,111 +26,164 @@ class CustomARView: ARView, ARSessionDelegate{
     
     convenience init() {
         self.init(frame: UIScreen.main.bounds)
-        
-        configration()
-        //        placeEntity()
+        configureTracking()
     }
     
-    //fungsi untuk mendeteksi gambar
-    func configration() {
-        //untuk load marker di Assets.xcassest
+    func configureTracking() {
         guard let referenceImages = ARReferenceImage.referenceImages(inGroupNamed: "AR Resources", bundle: nil) else {
             fatalError("Failed to load reference images.")
         }
         let configuration = ARImageTrackingConfiguration()
         configuration.trackingImages = referenceImages
-        configuration.maximumNumberOfTrackedImages = 1 // markar yang bisa baca saat bersamaan
+        configuration.maximumNumberOfTrackedImages = 1
         
         session.run(configuration)
     }
     
+    //fungsi membuat marker sebagai anchor
     func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
         for anchor in anchors {
             if let imageAnchor = anchor as? ARImageAnchor {
                 print("Gambar terdeteksi: \(imageAnchor.referenceImage.name ?? "Unknown")")
-                
-                // Tempatkan entitas dan tambahkan gesture
                 placeEntity(on: imageAnchor)
             }
         }
     }
     
-    //untuk memunculkan si objek
+    //fungsi utama untuk show model pada anchor,  gesture,
     func placeEntity(on anchor: ARImageAnchor) {
         
+        //kondisi untuk running di simulator
         #if targetEnvironment(simulator)
-        
-        print("Simulator tidak mendukung ARKit. Menjalankan dummy anchor...")
-            let dummyAnchorEntity = AnchorEntity(world: SIMD3<Float>(0, 0, -0.5)) // 0.5 meter di depan kamera
-            let dummyModelEntity = try! ModelEntity.loadModel(named: "Globe1")
-            dummyModelEntity.transform.translation = SIMD3<Float>(0, 0.1, 0) // Posisi dummy model
-            dummyModelEntity.transform.scale = SIMD3<Float>(0.01, 0.01, 0.01)
+        let dummyAnchorEntity = AnchorEntity(world: SIMD3<Float>(0, 0, -0.5))
+        let dummyModelEntity = try? ModelEntity.loadModel(named: "Globe1")
+        dummyModelEntity?.transform.translation = SIMD3<Float>(0, 0.1, 0)
+        dummyModelEntity?.transform.scale = SIMD3<Float>(0.01, 0.01, 0.01)
+        if let dummyModelEntity = dummyModelEntity {
             dummyAnchorEntity.addChild(dummyModelEntity)
             scene.addAnchor(dummyAnchorEntity)
+        }
         #else
-            // Buat AnchorEntity berdasarkan posisi gambar terdeteksi
+        do {
             let anchorEntity = AnchorEntity(anchor: anchor)
-            //let anchorEntity = AnchorEntity(world: anchor.transform)
+            let modelEntity = try! ModelEntity.load(named: "Globe")
             
-            let modelEntity = try! ModelEntity.loadModel(named: "Globe1")
+//            debugEntityHierarchy(for: modelEntity)
             
-            // Tentukan posisi spawn dengan mengatur translation (jika perlu)
-            modelEntity.transform.translation = SIMD3<Float>(x: 0, y: 0.5, z: 0)
+            // Bungkus model dengan root
+            let wrappedModel = Entity()
+            wrappedModel.name = "wrappedModel"
+            wrappedModel.addChild(modelEntity)
             
-            // Mengatur ukuran model dengan scale
-            modelEntity.transform.scale = SIMD3<Float>(0.01, 0.01, 0.01) // scale model ke 50% ukuran aslinya
+            initializePins()
             
-            // Tambahkan entitas ke anchor
-            anchorEntity.addChild(modelEntity)
+            // Simpan wrappedModel untuk gesture
+            self.wrappedModel = wrappedModel
             
-            // Tambahkan anchorEntity ke scene
-            scene.addAnchor(anchorEntity)
-            
-            addGesture(on: modelEntity)
+            // Tambahkan wrappedModel ke anchor
+            anchorEntity.addChild(wrappedModel)
+            self.scene.anchors.append(anchorEntity)
+
+            // Tambahkan gesture ke wrappedModel
+            addGesture(on: wrappedModel)
+        }
         #endif
     }
     
-    // Fungsi untuk menambahkan gesture
-    func addGesture(on object: ModelEntity) {
-        object.generateCollisionShapes(recursive: true)
+    //fungsi hide semua pin ketika app startup
+        func initializePins() {
+            for continent in continentPins.keys {
+                print("Continent Key: \(continent)") // Debugging
+                if continent != "pinBenua" {
+                    if let entity = wrappedModel?.findEntity(named: continent) {
+                        entity.isEnabled = false
+                        print("\(continent) pin hidden.")
+                    }
+                }
+            }
+            print("All continent pins initialized to hidden.")
+        }
 
-        // Gesture untuk rotasi
+
+    
+    //fungsi untuk fitur hide dan show benua
+    func toggleContinentPins(continent: String) {
+            if continent == "Semua" {
+                if let pinBenua = self.scene.findEntity(named: "pinBenua") {
+                    pinBenua.children.forEach { $0.isEnabled = true }
+                }
+            } else if let pinBenua = self.scene.findEntity(named: "pinBenua"),
+                      let specificContinent = pinBenua.findEntity(named: continent) {
+                pinBenua.children.forEach { $0.isEnabled = false }
+                specificContinent.isEnabled = true
+            }
+        }
+
+    
+    func wrapEntityInRoot(entity: Entity) -> ModelEntity {
+        let rootModel = ModelEntity()
+        rootModel.addChild(entity)
+        return rootModel
+    }
+    
+    func debugEntityHierarchy(for entity: Entity, depth: Int = 0) {
+        let indent = String(repeating: "  ", count: depth)
+        print("\(indent)Entity: \(entity.name.isEmpty ? "Unnamed" : entity.name)")
+        print("\(indent)  Children Count: \(entity.children.count)")
+        for child in entity.children {
+            debugEntityHierarchy(for: child, depth: depth + 1)
+        }
+    }
+    
+    func addGesture(on wrappedModel: Entity) {
+        // Tambahkan gesture recognizer ke ARView
         let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
         self.addGestureRecognizer(panGesture)
         
-        // Gesture untuk skala
         let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(handlePinchGesture(_:)))
         self.addGestureRecognizer(pinchGesture)
+        
+        // Pastikan collision shape untuk interaksi
+        wrappedModel.generateCollisionShapes(recursive: true)
     }
     
-    // Gesture Control Rotation
     @objc func handlePanGesture(_ gesture: UIPanGestureRecognizer) {
-        guard let entity = gesture.view as? ARView else { return }
-        guard let modelEntity = entity.scene.anchors.first?.children.first as? ModelEntity else { return }
-        
+        guard let wrappedModel = self.wrappedModel else {
+            print("Wrapped model is not available")
+            return
+        }
+
         let translation = gesture.translation(in: self)
-        
-        // Tentukan sudut rotasi
-        let horizontalRotationAngle = Float(translation.x) * 0.01 // Rotasi horizontal (sumbu Y)
-        //let verticalRotationAngle = Float(translation.y) * 0.01   // Rotasi vertikal (sumbu X)
-        
-        // Reset nilai gesture setelah memproses
+        let horizontalRotationAngle = Float(translation.x) * 0.01
+
+        // Rotasi model di sekitar sumbu Y
+        wrappedModel.transform.rotation *= simd_quatf(angle: horizontalRotationAngle, axis: [0, 1, 0])
+
+        // Reset nilai gesture
         gesture.setTranslation(.zero, in: self)
-        
-        // Terapkan rotasi pada model entity
-        modelEntity.transform.rotation *= simd_quatf(angle: horizontalRotationAngle, axis: [0, 1, 0]) // rotasi horizontal
-        //modelEntity.transform.rotation *= simd_quatf(angle: verticalRotationAngle, axis: [1, 0, 0])   // rotasi vertikal
     }
 
-    // Gesture Control Scale
     @objc func handlePinchGesture(_ gesture: UIPinchGestureRecognizer) {
-        guard let entity = gesture.view as? ARView else { return }
-        guard let modelEntity = entity.scene.anchors.first?.children.first as? ModelEntity else { return }
-
-        // Perbesar atau perkecil berdasarkan skala
-        modelEntity.scale *= SIMD3<Float>(repeating: Float(gesture.scale))
+        guard let wrappedModel = self.wrappedModel else {
+            print("Wrapped model is not available")
+            return
+        }
         
-        // Reset skala gesture
+        // Batasi skala minimal dan maksimal
+        let minScale: Float = 0.1
+        let maxScale: Float = 5.0
+
+        let scaleFactor = Float(gesture.scale)
+        var newScale = wrappedModel.scale * SIMD3<Float>(repeating: scaleFactor)
+
+        // Pastikan skala dalam batas
+        newScale.x = min(max(newScale.x, minScale), maxScale)
+        newScale.y = min(max(newScale.y, minScale), maxScale)
+        newScale.z = min(max(newScale.z, minScale), maxScale)
+
+        wrappedModel.scale = newScale
+
+        // Reset nilai gesture
         gesture.scale = 1.0
     }
 }
